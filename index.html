@@ -62,6 +62,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
   background:var(--bg);border-radius:10px;padding:10px;margin:0;white-space:pre-wrap;color:var(--muted)
 }
 .locked{opacity:.45;pointer-events:none}
+.slide-wrap{display:flex;gap:24px;align-items:center}
+#position{writing-mode:vertical-lr;direction:rtl;width:56px;height:320px}
+.slide-readout{font-size:3rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
 </style>
 </head>
 <body>
@@ -104,12 +107,16 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
   </section>
 
   <section id="posPanel" class="locked">
-    <h2>Ручная позиция</h2>
-    <label class="slider"><span>Позиция <b id="posVal">50%</b></span>
-      <input type="range" id="position" min="0" max="100" value="50">
-    </label>
-    <label class="slider"><span>Время перехода <b id="durVal">400 мс</b></span>
-      <input type="range" id="duration" min="100" max="2000" step="50" value="400">
+    <h2>Слайд</h2>
+    <div class="slide-wrap">
+      <input type="range" id="position" min="0" max="100" value="50" aria-label="Позиция">
+      <div>
+        <div class="slide-readout" id="posVal">50%</div>
+        <div class="info">Тяни ползунок, и Handy едет за ним в реальном времени. Верх = 100%.</div>
+      </div>
+    </div>
+    <label class="slider"><span>Плавность <b id="durVal">150 мс</b></span>
+      <input type="range" id="duration" min="50" max="1000" step="10" value="150">
     </label>
   </section>
 
@@ -151,6 +158,7 @@ async function ensureMode(mode){
   if (currentMode === mode) return;
   await api("PUT", "/mode", { mode });
   currentMode = mode;
+  posSent = null;
 }
 
 function setConnected(on){
@@ -231,16 +239,22 @@ const sendSlide = debounce(async () => {
 $("slideMin").oninput = e => { $("minVal").textContent = e.target.value + "%"; sendSlide(); };
 $("slideMax").oninput = e => { $("maxVal").textContent = e.target.value + "%"; sendSlide(); };
 
-// --- Manual position (HDSP) ---
-const sendPos = debounce(async () => {
-  const position = Number($("position").value), duration = Number($("duration").value);
+// --- Slide (HDSP, real time) ---
+let posTarget = 50, posSent = null, posBusy = false;
+async function pumpPos(){
+  if (posBusy || posTarget === posSent) return;
+  posBusy = true;
+  const position = posTarget, duration = Number($("duration").value);
   try {
     await ensureMode(MODE.HDSP);
     await api("PUT", "/hdsp/xpt", { position, duration, stopOnTarget: true });
-    log("Позиция " + position + "% за " + duration + " мс");
-  } catch (e) { log("Позиция: " + e.message); }
-}, 120);
-$("position").oninput = e => { $("posVal").textContent = e.target.value + "%"; sendPos(); };
+  } catch (e) { log("Слайд: " + e.message); }
+  posSent = position;
+  posBusy = false;
+  pumpPos();
+}
+$("position").oninput = e => { posTarget = Number(e.target.value); $("posVal").textContent = posTarget + "%"; pumpPos(); };
+$("position").onchange = () => log("Слайд: " + posTarget + "%");
 $("duration").oninput = e => { $("durVal").textContent = e.target.value + " мс"; };
 </script>
 </body>
