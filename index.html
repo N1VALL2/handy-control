@@ -62,6 +62,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
   background:var(--bg);border-radius:10px;padding:10px;margin:0;white-space:pre-wrap;color:var(--muted)
 }
 .locked{opacity:.45;pointer-events:none}
+.check{display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--muted);font-size:.9rem}
 .slide-wrap{display:flex;gap:24px;align-items:center}
 #position{writing-mode:vertical-lr;direction:rtl;width:56px;height:320px}
 .slide-readout{font-size:3rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
@@ -81,6 +82,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
       <button class="primary" id="connectBtn">Подключить</button>
     </div>
     <div class="info" id="deviceInfo">Ключ сохраняется только в этом браузере.</div>
+    <label class="check"><input type="checkbox" id="fracMode"> Шкала 0–1 (прошивка 4 / Handy 2)</label>
   </section>
 
   <button id="stop" disabled>Стоп<small>или клавиша Пробел</small></button>
@@ -134,6 +136,9 @@ const $ = id => document.getElementById(id);
 let key = "";
 let currentMode = null;
 let connected = false;
+let frac = false;
+const pct = v => frac ? v / 100 : v;
+$("fracMode").onchange = e => { frac = e.target.checked; posSent = null; log(frac ? "Шкала 0–1 включена." : "Шкала 0–100 включена."); };
 
 function log(msg){
   const t = new Date().toLocaleTimeString();
@@ -182,10 +187,15 @@ $("connectBtn").onclick = async () => {
     const info = await api("GET", "/info");
     $("deviceInfo").textContent = "Прошивка " + info.fwVersion + ", модель " + (info.model ?? "—") + ", железо " + (info.hwVersion ?? "—");
     if (info.fwStatus && info.fwStatus !== 0) log("Похоже, нужна обновлённая прошивка для API v2.");
+    frac = String(info.fwVersion || "").startsWith("4");
+    $("fracMode").checked = frac;
+    if (frac) log("Прошивка 4: включена шкала 0–1.");
     const slide = await api("GET", "/slide").catch(() => null);
     if (slide) {
-      $("slideMin").value = slide.min; $("slideMax").value = slide.max;
-      $("minVal").textContent = slide.min + "%"; $("maxVal").textContent = slide.max + "%";
+      const k = slide.max <= 1 ? 100 : 1;
+      const mn = Math.round(slide.min * k), mx = Math.round(slide.max * k);
+      $("slideMin").value = mn; $("slideMax").value = mx;
+      $("minVal").textContent = mn + "%"; $("maxVal").textContent = mx + "%";
     }
     currentMode = null;
     setConnected(true);
@@ -212,7 +222,7 @@ $("hampStart").onclick = async () => {
   try {
     await ensureMode(MODE.HAMP);
     await api("PUT", "/hamp/start");
-    await api("PUT", "/hamp/velocity", { velocity: Number($("velocity").value) });
+    await api("PUT", "/hamp/velocity", { velocity: pct(Number($("velocity").value)) });
     log("Движение запущено.");
   } catch (e) { log("Запуск: " + e.message); }
 };
@@ -224,7 +234,7 @@ $("hampStop").onclick = async () => {
 function debounce(fn, ms){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
 const sendVelocity = debounce(async v => {
-  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/velocity", { velocity: v }); log("Скорость " + v + "%"); }
+  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/velocity", { velocity: pct(v) }); log("Скорость " + v + "%"); }
   catch (e) { log("Скорость: " + e.message); }
 }, 150);
 $("velocity").oninput = e => { $("velVal").textContent = e.target.value + "%"; sendVelocity(Number(e.target.value)); };
@@ -233,7 +243,7 @@ $("velocity").oninput = e => { $("velVal").textContent = e.target.value + "%"; s
 const sendSlide = debounce(async () => {
   let min = Number($("slideMin").value), max = Number($("slideMax").value);
   if (min >= max) { log("Нижняя граница должна быть меньше верхней."); return; }
-  try { await api("PUT", "/slide", { min, max }); log("Зона " + min + "–" + max + "%"); }
+  try { await api("PUT", "/slide", { min: pct(min), max: pct(max) }); log("Зона " + min + "–" + max + "%"); }
   catch (e) { log("Зона: " + e.message); }
 }, 200);
 $("slideMin").oninput = e => { $("minVal").textContent = e.target.value + "%"; sendSlide(); };
@@ -247,7 +257,7 @@ async function pumpPos(){
   const position = posTarget, duration = Number($("duration").value);
   try {
     await ensureMode(MODE.HDSP);
-    await api("PUT", "/hdsp/xpt", { position, duration, stopOnTarget: true });
+    await api("PUT", "/hdsp/xpt", { position: pct(position), duration, stopOnTarget: !frac });
   } catch (e) { log("Слайд: " + e.message); }
   posSent = position;
   posBusy = false;
