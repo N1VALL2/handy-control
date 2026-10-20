@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Handy Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef0f7; --panel:#ffffff; --ink:#1b1f3b; --muted:#646a8a; --line:#d7dbec;
+  --accent:#5b4be0; --accent-ink:#fff; --ok:#1d9a6c; --bad:#d23c5a; --track:#e2e5f2;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#141833; --panel:#1d2246; --ink:#e9ebfa; --muted:#9298c0; --line:#2e3566;
+    --accent:#8b7cf6; --accent-ink:#141833; --ok:#3fd19a; --bad:#ff6b86; --track:#2a3060;
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:env(safe-area-inset-top,0) 16px env(safe-area-inset-bottom,0);
+  line-height:1.5;
+}
+main{max-width:720px;margin:0 auto;padding:28px 0 48px;display:grid;gap:18px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:1.9rem;font-weight:800;margin:0;letter-spacing:-.02em}
+.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--bad)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 25%,transparent)}
+section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px}
+h2{font-size:1.05rem;margin:0 0 12px;font-weight:800}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text]{
+  flex:1;min-width:180px;font:inherit;padding:11px 14px;border-radius:12px;
+  border:1px solid var(--line);background:transparent;color:var(--ink);
+}
+button{
+  font:inherit;font-weight:700;padding:11px 18px;border-radius:12px;border:1px solid var(--line);
+  background:transparent;color:var(--ink);cursor:pointer;
+}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.info{color:var(--muted);font-size:.9rem;margin-top:10px}
+label.slider{display:grid;gap:6px;margin:14px 0}
+label.slider span{display:flex;justify-content:space-between;font-weight:600}
+label.slider b{font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px}
+#stop{
+  width:100%;padding:22px;font-size:1.3rem;font-weight:800;border:none;
+  background:var(--bad);color:#fff;border-radius:18px;
+}
+#stop small{display:block;font-size:.8rem;font-weight:600;opacity:.85}
+#log{
+  font-family:ui-monospace,Consolas,monospace;font-size:.8rem;max-height:180px;overflow:auto;
+  background:var(--bg);border-radius:10px;padding:10px;margin:0;white-space:pre-wrap;color:var(--muted)
+}
+.locked{opacity:.45;pointer-events:none}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Handy Control</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">Не подключено</span></div>
+  </header>
+
+  <section>
+    <h2>Подключение</h2>
+    <div class="row">
+      <input type="text" id="key" placeholder="Connection key из приложения Handy" autocomplete="off">
+      <button class="primary" id="connectBtn">Подключить</button>
+    </div>
+    <div class="info" id="deviceInfo">Ключ сохраняется только в этом браузере.</div>
+  </section>
+
+  <button id="stop" disabled>Стоп<small>или клавиша Пробел</small></button>
+
+  <section id="hampPanel" class="locked">
+    <h2>Непрерывное движение</h2>
+    <div class="row">
+      <button class="primary" id="hampStart">Запустить</button>
+      <button id="hampStop">Остановить</button>
+    </div>
+    <label class="slider"><span>Скорость <b id="velVal">30%</b></span>
+      <input type="range" id="velocity" min="0" max="100" value="30">
+    </label>
+  </section>
+
+  <section id="zonePanel" class="locked">
+    <h2>Зона хода</h2>
+    <label class="slider"><span>Нижняя граница <b id="minVal">0%</b></span>
+      <input type="range" id="slideMin" min="0" max="100" value="0">
+    </label>
+    <label class="slider"><span>Верхняя граница <b id="maxVal">100%</b></span>
+      <input type="range" id="slideMax" min="0" max="100" value="100">
+    </label>
+  </section>
+
+  <section id="posPanel" class="locked">
+    <h2>Ручная позиция</h2>
+    <label class="slider"><span>Позиция <b id="posVal">50%</b></span>
+      <input type="range" id="position" min="0" max="100" value="50">
+    </label>
+    <label class="slider"><span>Время перехода <b id="durVal">400 мс</b></span>
+      <input type="range" id="duration" min="100" max="2000" step="50" value="400">
+    </label>
+  </section>
+
+  <section>
+    <h2>Журнал</h2>
+    <pre id="log"></pre>
+  </section>
+</main>
+
+<script>
+const API = "https://www.handyfeeling.com/api/handy/v2";
+const MODE = { HAMP: 0, HSSP: 1, HDSP: 2 };
+const $ = id => document.getElementById(id);
+
+let key = "";
+let currentMode = null;
+let connected = false;
+
+function log(msg){
+  const t = new Date().toLocaleTimeString();
+  $("log").textContent = "[" + t + "] " + msg + "\n" + $("log").textContent;
+}
+
+async function api(method, path, body){
+  const res = await fetch(API + path, {
+    method,
+    headers: { "X-Connection-Key": key, "Content-Type": "application/json", "Accept": "application/json" },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) {
+    const msg = data.error ? (data.error.name || "Ошибка") + ": " + (data.error.message || "") : "HTTP " + res.status;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+async function ensureMode(mode){
+  if (currentMode === mode) return;
+  await api("PUT", "/mode", { mode });
+  currentMode = mode;
+}
+
+function setConnected(on){
+  connected = on;
+  $("dot").classList.toggle("on", on);
+  $("statusText").textContent = on ? "Подключено" : "Не подключено";
+  $("stop").disabled = !on;
+  ["hampPanel","zonePanel","posPanel"].forEach(id => $(id).classList.toggle("locked", !on));
+}
+
+// --- Connect ---
+try { $("key").value = localStorage.getItem("handyKey") || ""; } catch(e) {}
+
+$("connectBtn").onclick = async () => {
+  key = $("key").value.trim();
+  if (!key) { log("Введите connection key."); return; }
+  try { localStorage.setItem("handyKey", key); } catch(e) {}
+  try {
+    const c = await api("GET", "/connected");
+    if (!c.connected) { setConnected(false); log("Устройство офлайн. Проверьте Wi-Fi на Handy."); return; }
+    const info = await api("GET", "/info");
+    $("deviceInfo").textContent = "Прошивка " + info.fwVersion + ", модель " + (info.model ?? "—") + ", железо " + (info.hwVersion ?? "—");
+    if (info.fwStatus && info.fwStatus !== 0) log("Похоже, нужна обновлённая прошивка для API v2.");
+    const slide = await api("GET", "/slide").catch(() => null);
+    if (slide) {
+      $("slideMin").value = slide.min; $("slideMax").value = slide.max;
+      $("minVal").textContent = slide.min + "%"; $("maxVal").textContent = slide.max + "%";
+    }
+    currentMode = null;
+    setConnected(true);
+    log("Подключено.");
+  } catch (e) { setConnected(false); log("Не удалось подключиться: " + e.message); }
+};
+
+// --- Stop ---
+async function stopAll(){
+  if (!connected) return;
+  try {
+    await ensureMode(MODE.HAMP);
+    await api("PUT", "/hamp/stop");
+    log("Остановлено.");
+  } catch (e) { log("Стоп: " + e.message); }
+}
+$("stop").onclick = stopAll;
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && e.target.tagName !== "INPUT") { e.preventDefault(); stopAll(); }
+});
+
+// --- HAMP ---
+$("hampStart").onclick = async () => {
+  try {
+    await ensureMode(MODE.HAMP);
+    await api("PUT", "/hamp/start");
+    await api("PUT", "/hamp/velocity", { velocity: Number($("velocity").value) });
+    log("Движение запущено.");
+  } catch (e) { log("Запуск: " + e.message); }
+};
+$("hampStop").onclick = async () => {
+  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/stop"); log("Движение остановлено."); }
+  catch (e) { log("Остановка: " + e.message); }
+};
+
+function debounce(fn, ms){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+const sendVelocity = debounce(async v => {
+  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/velocity", { velocity: v }); log("Скорость " + v + "%"); }
+  catch (e) { log("Скорость: " + e.message); }
+}, 150);
+$("velocity").oninput = e => { $("velVal").textContent = e.target.value + "%"; sendVelocity(Number(e.target.value)); };
+
+// --- Slide zone ---
+const sendSlide = debounce(async () => {
+  let min = Number($("slideMin").value), max = Number($("slideMax").value);
+  if (min >= max) { log("Нижняя граница должна быть меньше верхней."); return; }
+  try { await api("PUT", "/slide", { min, max }); log("Зона " + min + "–" + max + "%"); }
+  catch (e) { log("Зона: " + e.message); }
+}, 200);
+$("slideMin").oninput = e => { $("minVal").textContent = e.target.value + "%"; sendSlide(); };
+$("slideMax").oninput = e => { $("maxVal").textContent = e.target.value + "%"; sendSlide(); };
+
+// --- Manual position (HDSP) ---
+const sendPos = debounce(async () => {
+  const position = Number($("position").value), duration = Number($("duration").value);
+  try {
+    await ensureMode(MODE.HDSP);
+    await api("PUT", "/hdsp/xpt", { position, duration, stopOnTarget: true });
+    log("Позиция " + position + "% за " + duration + " мс");
+  } catch (e) { log("Позиция: " + e.message); }
+}, 120);
+$("position").oninput = e => { $("posVal").textContent = e.target.value + "%"; sendPos(); };
+$("duration").oninput = e => { $("durVal").textContent = e.target.value + " мс"; };
+</script>
+</body>
+</html>
