@@ -5,127 +5,175 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Handy Control</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#eef0f7; --panel:#ffffff; --ink:#1b1f3b; --muted:#646a8a; --line:#d7dbec;
-  --accent:#5b4be0; --accent-ink:#fff; --ok:#1d9a6c; --bad:#d23c5a; --track:#e2e5f2;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#141833; --panel:#1d2246; --ink:#e9ebfa; --muted:#9298c0; --line:#2e3566;
-    --accent:#8b7cf6; --accent-ink:#141833; --ok:#3fd19a; --bad:#ff6b86; --track:#2a3060;
-    color-scheme: dark;
-  }
+  --hi:rgba(255,255,255,.14); --ink:#f4f5f8; --muted:rgba(244,245,248,.55);
+  --ok:#5ef0b0; --bad:#ff4d6d; --a1:#9d8cff; --a2:#6fe3ff;
+  color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
 body{
-  background:var(--bg); color:var(--ink);
-  font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  padding:env(safe-area-inset-top,0) 16px env(safe-area-inset-bottom,0);
-  line-height:1.5;
+  background:#000; color:var(--ink); min-height:100vh; line-height:1.5;
+  font-family:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
 }
-main{max-width:720px;margin:0 auto;padding:28px 0 48px;display:grid;gap:18px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-h1{font-size:1.9rem;font-weight:800;margin:0;letter-spacing:-.02em}
-.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:600}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--bad)}
-.dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 25%,transparent)}
-section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px}
-h2{font-size:1.05rem;margin:0 0 12px;font-weight:800}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden}
+.bg i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:drift 22s ease-in-out infinite alternate}
+.bg i:nth-child(1){width:46vw;height:46vw;left:-10vw;top:-12vw;background:#3b2a8f}
+.bg i:nth-child(2){width:40vw;height:40vw;right:-12vw;top:30vh;background:#0d5f7a;animation-duration:28s}
+.bg i:nth-child(3){width:30vw;height:30vw;left:30vw;bottom:-14vw;background:#4a1450;animation-duration:34s}
+@keyframes drift{to{transform:translate(6vw,4vh) scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.bg i{animation:none}}
+main{max-width:1100px;margin:0 auto;padding:32px 20px 56px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:700;letter-spacing:-.03em;margin:0}
+h2{font-size:1rem;font-weight:600;margin:0 0 14px}
+.glass{
+  position:relative;padding:22px;border-radius:28px;border:1px solid var(--hi);
+  background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.025));
+  backdrop-filter:blur(28px) saturate(170%);-webkit-backdrop-filter:blur(28px) saturate(170%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(255,255,255,.04),0 20px 60px rgba(0,0,0,.55);
+}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120% 60% at 10% 0%,rgba(255,255,255,.12),transparent 55%)}
+.pill{display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;color:var(--muted);font-weight:500}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--bad);box-shadow:0 0 12px var(--bad)}
+.dot.on{background:var(--ok);box-shadow:0 0 12px var(--ok)}
+.grid{display:grid;gap:18px;grid-template-columns:1fr}
+@media (min-width:900px){.grid{grid-template-columns:1.05fr 1fr;align-items:start}.viz{position:sticky;top:20px}}
+.stack{display:grid;gap:18px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:18px}
+.head h2{margin:0}
+.tag{font-size:.8rem;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--hi);color:var(--muted)}
+.viz-body{display:flex;gap:28px;align-items:center}
+.rail{position:relative;flex:none;width:74px;height:340px;border-radius:40px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 8px 24px rgba(0,0,0,.6)}
+.zone{position:absolute;left:8px;right:8px;border-radius:30px;background:linear-gradient(180deg,rgba(157,140,255,.2),rgba(111,227,255,.12))}
+.target{position:absolute;left:-8px;right:-8px;height:2px;border-radius:2px;background:rgba(255,255,255,.55);display:none}
+.sleeve{position:absolute;left:6px;right:6px;height:58px;border-radius:30px;border:1px solid rgba(255,255,255,.5);
+  background:linear-gradient(160deg,rgba(255,255,255,.55),rgba(255,255,255,.12));
+  box-shadow:0 0 30px rgba(157,140,255,.55),inset 0 1px 0 rgba(255,255,255,.8)}
+.big{font-size:clamp(3rem,8vw,4.6rem);font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);margin-top:8px}
+#chart{display:block;width:100%;height:150px;margin-top:20px;border-radius:18px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-input[type=text]{
-  flex:1;min-width:180px;font:inherit;padding:11px 14px;border-radius:12px;
-  border:1px solid var(--line);background:transparent;color:var(--ink);
-}
-button{
-  font:inherit;font-weight:700;padding:11px 18px;border-radius:12px;border:1px solid var(--line);
-  background:transparent;color:var(--ink);cursor:pointer;
-}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-button:disabled{opacity:.4;cursor:not-allowed}
-button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input[type=text]{flex:1;min-width:160px;font:inherit;color:var(--ink);padding:12px 16px;border-radius:16px;border:1px solid var(--hi);background:rgba(0,0,0,.35)}
+button{font:inherit;font-weight:600;color:var(--ink);padding:12px 20px;border-radius:16px;border:1px solid var(--hi);
+  background:rgba(255,255,255,.07);cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.18);transition:background .15s,transform .1s}
+button:hover{background:rgba(255,255,255,.13)}
+button:active{transform:scale(.97)}
+button.primary{background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(220,215,255,.85));color:#000;border-color:transparent}
+button:disabled{opacity:.35;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--a2);outline-offset:3px}
+#stop{width:100%;padding:20px;font-size:1.2rem;font-weight:700;border-radius:24px;border-color:rgba(255,77,109,.5);
+  background:linear-gradient(135deg,rgba(255,77,109,.35),rgba(255,77,109,.12));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 0 40px rgba(255,77,109,.25)}
+#stop small{display:block;font-size:.78rem;font-weight:500;opacity:.7;margin-top:2px}
 .info{color:var(--muted);font-size:.9rem;margin-top:10px}
-label.slider{display:grid;gap:6px;margin:14px 0}
-label.slider span{display:flex;justify-content:space-between;font-weight:600}
-label.slider b{font-variant-numeric:tabular-nums}
-input[type=range]{width:100%;accent-color:var(--accent);height:28px}
-#stop{
-  width:100%;padding:22px;font-size:1.3rem;font-weight:800;border:none;
-  background:var(--bad);color:#fff;border-radius:18px;
-}
-#stop small{display:block;font-size:.8rem;font-weight:600;opacity:.85}
-#log{
-  font-family:ui-monospace,Consolas,monospace;font-size:.8rem;max-height:180px;overflow:auto;
-  background:var(--bg);border-radius:10px;padding:10px;margin:0;white-space:pre-wrap;color:var(--muted)
-}
-.locked{opacity:.45;pointer-events:none}
-.check{display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--muted);font-size:.9rem}
-.slide-wrap{display:flex;gap:24px;align-items:center}
-#position{writing-mode:vertical-lr;direction:rtl;width:56px;height:320px}
-.slide-readout{font-size:3rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.check{display:flex;gap:8px;align-items:center;margin-top:12px;color:var(--muted);font-size:.9rem}
+.check input{accent-color:var(--a1)}
+label.slider{display:grid;gap:4px;margin:14px 0 4px}
+label.slider span{display:flex;justify-content:space-between;font-weight:500}
+label.slider b{font-variant-numeric:tabular-nums;font-weight:600}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:rgba(255,255,255,.12)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;
+  background:rgba(255,255,255,.9);box-shadow:0 0 0 6px rgba(255,255,255,.08),0 4px 14px rgba(0,0,0,.6)}
+input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(255,255,255,.12)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:rgba(255,255,255,.9)}
+.slide-wrap{display:flex;gap:22px;align-items:center}
+.pad{position:relative;flex:none;width:96px;height:240px;border-radius:30px;overflow:hidden;touch-action:none;cursor:ns-resize;
+  background:rgba(0,0,0,.35);border:1px solid var(--hi);box-shadow:inset 0 8px 24px rgba(0,0,0,.5)}
+.pad-fill{position:absolute;left:0;right:0;bottom:0;height:50%;background:linear-gradient(0deg,rgba(157,140,255,.55),rgba(111,227,255,.3))}
+.pad-line{position:absolute;left:10px;right:10px;bottom:50%;height:4px;border-radius:4px;background:#fff;box-shadow:0 0 14px #fff;transform:translateY(50%)}
+.slide-readout{font-size:2.6rem;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+#log{font-family:ui-monospace,Consolas,monospace;font-size:.8rem;max-height:160px;overflow:auto;margin:0;padding:12px;
+  border-radius:14px;background:rgba(0,0,0,.4);white-space:pre-wrap;color:var(--muted)}
+.locked{opacity:.4;pointer-events:none}
+@media (max-width:520px){.rail{height:260px;width:64px}.viz-body{gap:20px}}
 </style>
 </head>
 <body>
+<div class="bg"><i></i><i></i><i></i></div>
 <main>
   <header>
     <h1>Handy Control</h1>
-    <div class="status"><span class="dot" id="dot"></span><span id="statusText">Не подключено</span></div>
+    <div class="glass pill"><span class="dot" id="dot"></span><span id="statusText">Не подключено</span></div>
   </header>
 
-  <section>
-    <h2>Подключение</h2>
-    <div class="row">
-      <input type="text" id="key" placeholder="Connection key из приложения Handy" autocomplete="off">
-      <button class="primary" id="connectBtn">Подключить</button>
-    </div>
-    <div class="info" id="deviceInfo">Ключ сохраняется только в этом браузере.</div>
-    <label class="check"><input type="checkbox" id="fracMode"> Шкала 0–1 (прошивка 4 / Handy 2)</label>
-  </section>
-
-  <button id="stop" disabled>Стоп<small>или клавиша Пробел</small></button>
-
-  <section id="hampPanel" class="locked">
-    <h2>Непрерывное движение</h2>
-    <div class="row">
-      <button class="primary" id="hampStart">Запустить</button>
-      <button id="hampStop">Остановить</button>
-    </div>
-    <label class="slider"><span>Скорость <b id="velVal">30%</b></span>
-      <input type="range" id="velocity" min="0" max="100" value="30">
-    </label>
-  </section>
-
-  <section id="zonePanel" class="locked">
-    <h2>Зона хода</h2>
-    <label class="slider"><span>Нижняя граница <b id="minVal">0%</b></span>
-      <input type="range" id="slideMin" min="0" max="100" value="0">
-    </label>
-    <label class="slider"><span>Верхняя граница <b id="maxVal">100%</b></span>
-      <input type="range" id="slideMax" min="0" max="100" value="100">
-    </label>
-  </section>
-
-  <section id="posPanel" class="locked">
-    <h2>Слайд</h2>
-    <div class="slide-wrap">
-      <input type="range" id="position" min="0" max="100" value="50" aria-label="Позиция">
-      <div>
-        <div class="slide-readout" id="posVal">50%</div>
-        <div class="info">Тяни ползунок, и Handy едет за ним в реальном времени. Верх = 100%.</div>
+  <div class="grid">
+    <section class="glass viz">
+      <div class="head"><h2>Сейчас</h2><span class="tag" id="modeTag">Ожидание</span></div>
+      <div class="viz-body">
+        <div class="rail" id="rail"><div class="zone" id="zone"></div><div class="target" id="target"></div><div class="sleeve" id="sleeve"></div></div>
+        <div>
+          <div class="big" id="bigPos">50%</div>
+          <div class="sub">положение в ходе</div>
+          <div class="sub" id="realPos"></div>
+        </div>
       </div>
-    </div>
-    <label class="slider"><span>Плавность <b id="durVal">150 мс</b></span>
-      <input type="range" id="duration" min="50" max="1000" step="10" value="150">
-    </label>
-  </section>
+      <canvas id="chart"></canvas>
+      <label class="check"><input type="checkbox" id="pollReal"> Читать реальную позицию с устройства раз в секунду</label>
+    </section>
 
-  <section>
-    <h2>Журнал</h2>
-    <pre id="log"></pre>
-  </section>
+    <div class="stack">
+      <section class="glass">
+        <h2>Подключение</h2>
+        <div class="row">
+          <input type="text" id="key" placeholder="Connection key из приложения Handy" autocomplete="off">
+          <button class="primary" id="connectBtn">Подключить</button>
+        </div>
+        <div class="info" id="deviceInfo">Ключ сохраняется только в этом браузере.</div>
+        <label class="check"><input type="checkbox" id="fracMode"> Шкала 0–1 (прошивка 4 / Handy 2)</label>
+      </section>
+
+      <button id="stop" disabled>Стоп<small>или клавиша Пробел</small></button>
+
+      <section class="glass locked" id="posPanel">
+        <h2>Слайд</h2>
+        <div class="slide-wrap">
+          <div class="pad" id="pad" tabindex="0" role="slider" aria-label="Позиция" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+            <div class="pad-fill" id="padFill"></div><div class="pad-line" id="padLine"></div>
+          </div>
+          <div>
+            <div class="slide-readout" id="posVal">50%</div>
+            <div class="info">Тяни по полосе, и Handy едет следом. Стрелки вверх и вниз тоже работают.</div>
+          </div>
+        </div>
+        <label class="slider"><span>Плавность <b id="durVal">150 мс</b></span>
+          <input type="range" id="duration" min="50" max="1000" step="10" value="150">
+        </label>
+      </section>
+
+      <section class="glass locked" id="hampPanel">
+        <h2>Непрерывное движение</h2>
+        <div class="row">
+          <button class="primary" id="hampStart">Запустить</button>
+          <button id="hampStop">Остановить</button>
+        </div>
+        <label class="slider"><span>Скорость <b id="velVal">30%</b></span>
+          <input type="range" id="velocity" min="0" max="100" value="30">
+        </label>
+      </section>
+
+      <section class="glass locked" id="zonePanel">
+        <h2>Зона хода</h2>
+        <label class="slider"><span>Нижняя граница <b id="minVal">0%</b></span>
+          <input type="range" id="slideMin" min="0" max="100" value="0">
+        </label>
+        <label class="slider"><span>Верхняя граница <b id="maxVal">100%</b></span>
+          <input type="range" id="slideMax" min="0" max="100" value="100">
+        </label>
+      </section>
+
+      <section class="glass">
+        <h2>Журнал</h2>
+        <pre id="log"></pre>
+      </section>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -133,17 +181,15 @@ const API = "https://www.handyfeeling.com/api/handy/v2";
 const MODE = { HAMP: 0, HSSP: 1, HDSP: 2 };
 const $ = id => document.getElementById(id);
 
-let key = "";
-let currentMode = null;
-let connected = false;
-let frac = false;
+let key = "", currentMode = null, connected = false, frac = false;
+let posTarget = 50, posSent = null, posBusy = false;
 const pct = v => frac ? v / 100 : v;
-$("fracMode").onchange = e => { frac = e.target.checked; posSent = null; log(frac ? "Шкала 0–1 включена." : "Шкала 0–100 включена."); };
 
 function log(msg){
   const t = new Date().toLocaleTimeString();
   $("log").textContent = "[" + t + "] " + msg + "\n" + $("log").textContent;
 }
+function setTag(t){ $("modeTag").textContent = t; }
 
 async function api(method, path, body){
   const res = await fetch(API + path, {
@@ -174,8 +220,82 @@ function setConnected(on){
   ["hampPanel","zonePanel","posPanel"].forEach(id => $(id).classList.toggle("locked", !on));
 }
 
+// --- Live visualization (model of commanded motion) ---
+const sim = { pos: 50, from: 50, to: 50, t0: 0, dur: 0, hamp: false, dir: 1, target: null };
+const zone = () => { const a = Number($("slideMin").value), b = Number($("slideMax").value); return a < b ? [a, b] : [0, 100]; };
+const mapZ = p => { const z = zone(); return z[0] + p / 100 * (z[1] - z[0]); };
+function simMove(p, dur){ sim.hamp = false; sim.from = sim.pos; sim.to = mapZ(p); sim.target = sim.to; sim.t0 = performance.now(); sim.dur = Math.max(dur, 1); }
+function simHamp(on){ sim.hamp = on; sim.dur = 0; sim.target = null; }
+function simFreeze(){ sim.hamp = false; sim.dur = 0; }
+
+const hist = [];
+const cv = $("chart"), cx = cv.getContext("2d");
+let last = performance.now();
+
+function render(now){
+  const rail = $("rail"), H = rail.clientHeight, S = 58, span = H - S;
+  const z = zone();
+  $("sleeve").style.bottom = (sim.pos / 100 * span) + "px";
+  $("zone").style.bottom = (z[0] / 100 * span) + "px";
+  $("zone").style.height = ((z[1] - z[0]) / 100 * span + S) + "px";
+  const tg = $("target");
+  if (sim.target === null) tg.style.display = "none";
+  else { tg.style.display = "block"; tg.style.bottom = (S / 2 + sim.target / 100 * span) + "px"; }
+  $("bigPos").textContent = Math.round(sim.pos) + "%";
+
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx.clearRect(0, 0, w, h);
+  const pad = 12, y = p => h - pad - p / 100 * (h - 2 * pad);
+  cx.fillStyle = "rgba(157,140,255,.08)";
+  cx.fillRect(0, y(z[1]), w, y(z[0]) - y(z[1]));
+  cx.strokeStyle = "rgba(255,255,255,.07)"; cx.lineWidth = 1;
+  [0, 50, 100].forEach(p => { cx.beginPath(); cx.moveTo(0, y(p)); cx.lineTo(w, y(p)); cx.stroke(); });
+  if (hist.length < 2) return;
+  const g = cx.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0, "rgba(111,227,255,0)"); g.addColorStop(.6, "rgba(157,140,255,.9)"); g.addColorStop(1, "#ffffff");
+  cx.strokeStyle = g; cx.lineWidth = 2.5; cx.lineJoin = "round"; cx.beginPath();
+  hist.forEach((pt, i) => { const x = w - (now - pt[0]) / 10000 * w; if (i) cx.lineTo(x, y(pt[1])); else cx.moveTo(x, y(pt[1])); });
+  cx.stroke();
+  cx.fillStyle = "#fff"; cx.shadowColor = "#9d8cff"; cx.shadowBlur = 14;
+  cx.beginPath(); cx.arc(w - 4, y(sim.pos), 4, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+}
+
+function frame(now){
+  const dt = Math.min(now - last, 50); last = now;
+  if (sim.hamp) {
+    const z = zone(), v = Number($("velocity").value);
+    if (v > 0) {
+      const oneWay = 3000 - v * 28.5;
+      sim.pos += sim.dir * (z[1] - z[0]) / oneWay * dt;
+      if (sim.pos >= z[1]) { sim.pos = z[1]; sim.dir = -1; }
+      if (sim.pos <= z[0]) { sim.pos = z[0]; sim.dir = 1; }
+    }
+  } else if (sim.dur > 0) {
+    const k = Math.min(1, (now - sim.t0) / sim.dur);
+    const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    sim.pos = sim.from + (sim.to - sim.from) * e;
+    if (k >= 1) sim.dur = 0;
+  }
+  hist.push([now, sim.pos]);
+  while (hist.length && now - hist[0][0] > 10000) hist.shift();
+  render(now);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+let pollTimer = null;
+async function pollReal(){
+  if (!connected) return;
+  try { const r = await api("GET", "/slide/position/absolute"); $("realPos").textContent = "Датчик: " + Number(r.position).toFixed(1) + " мм"; }
+  catch (e) { $("realPos").textContent = "Датчик: " + e.message; }
+}
+$("pollReal").onchange = e => { clearInterval(pollTimer); $("realPos").textContent = ""; if (e.target.checked) pollTimer = setInterval(pollReal, 1000); };
+
 // --- Connect ---
 try { $("key").value = localStorage.getItem("handyKey") || ""; } catch(e) {}
+$("fracMode").onchange = e => { frac = e.target.checked; posSent = null; log(frac ? "Шкала 0–1 включена." : "Шкала 0–100 включена."); };
 
 $("connectBtn").onclick = async () => {
   key = $("key").value.trim();
@@ -206,6 +326,7 @@ $("connectBtn").onclick = async () => {
 // --- Stop ---
 async function stopAll(){
   if (!connected) return;
+  simFreeze(); setTag("Стоп");
   try {
     await ensureMode(MODE.HAMP);
     await api("PUT", "/hamp/stop");
@@ -223,11 +344,12 @@ $("hampStart").onclick = async () => {
     await ensureMode(MODE.HAMP);
     await api("PUT", "/hamp/start");
     await api("PUT", "/hamp/velocity", { velocity: pct(Number($("velocity").value)) });
+    simHamp(true); setTag("Непрерывное движение");
     log("Движение запущено.");
   } catch (e) { log("Запуск: " + e.message); }
 };
 $("hampStop").onclick = async () => {
-  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/stop"); log("Движение остановлено."); }
+  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/stop"); simHamp(false); setTag("Ожидание"); log("Движение остановлено."); }
   catch (e) { log("Остановка: " + e.message); }
 };
 
@@ -250,21 +372,38 @@ $("slideMin").oninput = e => { $("minVal").textContent = e.target.value + "%"; s
 $("slideMax").oninput = e => { $("maxVal").textContent = e.target.value + "%"; sendSlide(); };
 
 // --- Slide (HDSP, real time) ---
-let posTarget = 50, posSent = null, posBusy = false;
 async function pumpPos(){
-  if (posBusy || posTarget === posSent) return;
+  if (!connected || posBusy || posTarget === posSent) return;
   posBusy = true;
   const position = posTarget, duration = Number($("duration").value);
   try {
     await ensureMode(MODE.HDSP);
+    simMove(position, duration); setTag("Слайд");
     await api("PUT", "/hdsp/xpt", { position: pct(position), duration, stopOnTarget: !frac });
   } catch (e) { log("Слайд: " + e.message); }
   posSent = position;
   posBusy = false;
   pumpPos();
 }
-$("position").oninput = e => { posTarget = Number(e.target.value); $("posVal").textContent = posTarget + "%"; pumpPos(); };
-$("position").onchange = () => log("Слайд: " + posTarget + "%");
+
+const pad = $("pad");
+function setPos(p){
+  posTarget = Math.max(0, Math.min(100, Math.round(p)));
+  $("posVal").textContent = posTarget + "%";
+  $("padFill").style.height = posTarget + "%";
+  $("padLine").style.bottom = posTarget + "%";
+  pad.setAttribute("aria-valuenow", posTarget);
+  pumpPos();
+}
+let dragging = false;
+const fromY = e => { const r = pad.getBoundingClientRect(); return (r.bottom - e.clientY) / r.height * 100; };
+pad.onpointerdown = e => { dragging = true; pad.setPointerCapture(e.pointerId); setPos(fromY(e)); };
+pad.onpointermove = e => { if (dragging) setPos(fromY(e)); };
+pad.onpointerup = pad.onpointercancel = () => { if (dragging) { dragging = false; log("Слайд: " + posTarget + "%"); } };
+pad.onkeydown = e => {
+  if (e.key === "ArrowUp") { e.preventDefault(); setPos(posTarget + 2); }
+  if (e.key === "ArrowDown") { e.preventDefault(); setPos(posTarget - 2); }
+};
 $("duration").oninput = e => { $("durVal").textContent = e.target.value + " мс"; };
 </script>
 </body>
