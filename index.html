@@ -74,15 +74,23 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .info{color:var(--muted);font-size:.9rem;margin-top:10px}
 .check{display:flex;gap:8px;align-items:center;margin-top:12px;color:var(--muted);font-size:.9rem}
 .check input{accent-color:var(--a1)}
-label.slider{display:grid;gap:4px;margin:14px 0 4px}
-label.slider span{display:flex;justify-content:space-between;font-weight:500}
-label.slider b{font-variant-numeric:tabular-nums;font-weight:600}
+.slider{display:grid;gap:4px;margin:14px 0 4px}
+.slider span{display:flex;justify-content:space-between;font-weight:500}
+.slider b{font-variant-numeric:tabular-nums;font-weight:600}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent}
 input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:rgba(255,255,255,.12)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;
   background:rgba(255,255,255,.9);box-shadow:0 0 0 6px rgba(255,255,255,.08),0 4px 14px rgba(0,0,0,.6)}
 input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(255,255,255,.12)}
 input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:rgba(255,255,255,.9)}
+.dual{position:relative;height:28px}
+.dual .track{position:absolute;left:0;right:0;top:11px;height:6px;border-radius:6px;background:rgba(255,255,255,.12)}
+.dual .fill{position:absolute;top:11px;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--a2),var(--a1));box-shadow:0 0 12px rgba(157,140,255,.6)}
+.dual input{position:absolute;inset:0;pointer-events:none}
+.dual input::-webkit-slider-runnable-track{background:transparent}
+.dual input::-moz-range-track{background:transparent}
+.dual input::-webkit-slider-thumb{pointer-events:auto}
+.dual input::-moz-range-thumb{pointer-events:auto}
 .slide-wrap{display:flex;gap:22px;align-items:center}
 .pad{position:relative;flex:none;width:96px;height:240px;border-radius:30px;overflow:hidden;touch-action:none;cursor:ns-resize;
   background:rgba(0,0,0,.35);border:1px solid var(--hi);box-shadow:inset 0 8px 24px rgba(0,0,0,.5)}
@@ -147,25 +155,25 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
         </label>
       </section>
 
-      <section class="glass locked" id="hampPanel">
-        <h2>Непрерывное движение</h2>
+      <section class="glass locked" id="motionPanel">
+        <h2>Движение</h2>
         <div class="row">
           <button class="primary" id="hampStart">Запустить</button>
           <button id="hampStop">Остановить</button>
         </div>
+        <div class="slider"><span>Зона хода <b id="zoneVal">0–100%</b></span>
+          <div class="dual"><div class="track"></div><div class="fill" id="zoneFill"></div>
+            <input type="range" id="slideMin" min="0" max="100" value="0" aria-label="Нижняя граница">
+            <input type="range" id="slideMax" min="0" max="100" value="100" aria-label="Верхняя граница">
+          </div>
+        </div>
         <label class="slider"><span>Скорость <b id="velVal">30%</b></span>
-          <input type="range" id="velocity" min="0" max="100" value="30">
+          <input type="range" id="velocity" min="1" max="100" value="30">
         </label>
-      </section>
-
-      <section class="glass locked" id="zonePanel">
-        <h2>Зона хода</h2>
-        <label class="slider"><span>Нижняя граница <b id="minVal">0%</b></span>
-          <input type="range" id="slideMin" min="0" max="100" value="0">
+        <label class="slider"><span>Резкость <b id="sharpVal">0%</b></span>
+          <input type="range" id="sharpness" min="0" max="100" value="0">
         </label>
-        <label class="slider"><span>Верхняя граница <b id="maxVal">100%</b></span>
-          <input type="range" id="slideMax" min="0" max="100" value="100">
-        </label>
+        <div class="info" id="motionInfo">Плавная волна. Изменения применяются примерно через секунду.</div>
       </section>
 
       <section class="glass">
@@ -217,7 +225,7 @@ function setConnected(on){
   $("dot").classList.toggle("on", on);
   $("statusText").textContent = on ? "Подключено" : "Не подключено";
   $("stop").disabled = !on;
-  ["hampPanel","zonePanel","posPanel"].forEach(id => $(id).classList.toggle("locked", !on));
+  ["motionPanel","posPanel"].forEach(id => $(id).classList.toggle("locked", !on));
 }
 
 // --- Live visualization (model of commanded motion) ---
@@ -265,13 +273,8 @@ function render(now){
 function frame(now){
   const dt = Math.min(now - last, 50); last = now;
   if (sim.hamp) {
-    const z = zone(), v = Number($("velocity").value);
-    if (v > 0) {
-      const oneWay = 3000 - v * 28.5;
-      sim.pos += sim.dir * (z[1] - z[0]) / oneWay * dt;
-      if (sim.pos >= z[1]) { sim.pos = z[1]; sim.dir = -1; }
-      if (sim.pos <= z[0]) { sim.pos = z[0]; sim.dir = 1; }
-    }
+    const P = 2 * oneWay();
+    sim.pos = mapZ(shapeAt((now - motionStart) % P));
   } else if (sim.dur > 0) {
     const k = Math.min(1, (now - sim.t0) / sim.dur);
     const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
@@ -315,7 +318,7 @@ $("connectBtn").onclick = async () => {
       const k = slide.max <= 1 ? 100 : 1;
       const mn = Math.round(slide.min * k), mx = Math.round(slide.max * k);
       $("slideMin").value = mn; $("slideMax").value = mx;
-      $("minVal").textContent = mn + "%"; $("maxVal").textContent = mx + "%";
+      updateZoneUI();
     }
     currentMode = null;
     setConnected(true);
@@ -327,9 +330,10 @@ $("connectBtn").onclick = async () => {
 async function stopAll(){
   if (!connected) return;
   simFreeze(); setTag("Стоп");
+  motionOn = false; applySeq++;
   try {
-    await ensureMode(MODE.HAMP);
-    await api("PUT", "/hamp/stop");
+    if (currentMode === MODE.HSSP) await api("PUT", "/hssp/stop");
+    else { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/stop"); }
     log("Остановлено.");
   } catch (e) { log("Стоп: " + e.message); }
 }
@@ -338,43 +342,98 @@ document.addEventListener("keydown", e => {
   if (e.code === "Space" && e.target.tagName !== "INPUT") { e.preventDefault(); stopAll(); }
 });
 
-// --- HAMP ---
+// --- Motion (HSSP script generated in the browser) ---
+let motionOn = false, motionStart = 0, applySeq = 0;
+const oneWay = () => 3000 - Number($("velocity").value) * 28.5;
+const sharp = () => Number($("sharpness").value) / 100;
+function halfShape(u, s){
+  const m = 1 - 0.8 * s;
+  if (u >= m) return 1;
+  const x = u / m, smooth = (1 - Math.cos(Math.PI * x)) / 2;
+  return smooth + (x - smooth) * s;
+}
+function shapeAt(t){
+  const h = oneWay(), s = sharp();
+  return t < h ? 100 * halfShape(t / h, s) : 100 * (1 - halfShape((t - h) / h, s));
+}
+function buildScript(){
+  const h = Math.round(oneWay()), s = sharp(), m = 1 - 0.8 * s;
+  const n = Math.max(1, Math.min(12, Math.floor(m * h / 40)));
+  const cycles = Math.max(2, Math.ceil(20000 / (2 * h)));
+  const actions = [{ at: 0, pos: 0 }];
+  for (let k = 0; k < cycles * 2; k++) {
+    const start = k * h, up = k % 2 === 0;
+    for (let i = 1; i <= n; i++) {
+      const v = halfShape(i / n * m, s);
+      actions.push({ at: start + Math.round(i / n * m * h), pos: Math.round(up ? 100 * v : 100 - 100 * v) });
+    }
+    if (m < 0.999) actions.push({ at: start + h, pos: up ? 100 : 0 });
+  }
+  return { version: "1.0", inverted: false, range: 100, actions };
+}
+async function applyMotion(){
+  const seq = ++applySeq;
+  const fd = new FormData();
+  fd.append("file", new File([JSON.stringify(buildScript())], "motion.funscript", { type: "application/json" }));
+  const up = await fetch("https://www.handyfeeling.com/api/hosting/v2/upload", { method: "POST", body: fd }).then(r => r.json());
+  if (!up.url) throw new Error("не удалось загрузить скрипт");
+  if (seq !== applySeq) return;
+  await ensureMode(MODE.HSSP);
+  await api("PUT", "/hssp/setup", { url: up.url });
+  await api("PUT", "/hssp/loop", { activated: true }).catch(() => {});
+  const t0 = Date.now(), st = await api("GET", "/servertime"), t1 = Date.now();
+  const offset = st.serverTime + (t1 - t0) / 2 - t1;
+  if (seq !== applySeq) return;
+  await api("PUT", "/hssp/play", { estimatedServerTime: Math.round(Date.now() + offset), startTime: 0 });
+  motionStart = performance.now();
+  simHamp(true); setTag("Движение");
+}
+function describeSharp(){
+  const s = Number($("sharpness").value);
+  const kind = s < 15 ? "Плавная волна." : s < 60 ? "Упругие толчки." : "Резкие рывки с паузами на краях.";
+  $("motionInfo").textContent = kind + " Изменения применяются примерно через секунду.";
+}
 $("hampStart").onclick = async () => {
-  try {
-    await ensureMode(MODE.HAMP);
-    await api("PUT", "/hamp/start");
-    await api("PUT", "/hamp/velocity", { velocity: pct(Number($("velocity").value)) });
-    simHamp(true); setTag("Непрерывное движение");
-    log("Движение запущено.");
-  } catch (e) { log("Запуск: " + e.message); }
+  motionOn = true; setTag("Загрузка…");
+  try { await applyMotion(); log("Движение запущено."); }
+  catch (e) { motionOn = false; setTag("Ожидание"); log("Запуск: " + e.message); }
 };
 $("hampStop").onclick = async () => {
-  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/stop"); simHamp(false); setTag("Ожидание"); log("Движение остановлено."); }
+  motionOn = false; applySeq++; simHamp(false); setTag("Ожидание");
+  try { if (currentMode === MODE.HSSP) await api("PUT", "/hssp/stop"); log("Движение остановлено."); }
   catch (e) { log("Остановка: " + e.message); }
 };
 
 function debounce(fn, ms){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
-const sendVelocity = debounce(async v => {
-  try { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/velocity", { velocity: pct(v) }); log("Скорость " + v + "%"); }
-  catch (e) { log("Скорость: " + e.message); }
-}, 150);
-$("velocity").oninput = e => { $("velVal").textContent = e.target.value + "%"; sendVelocity(Number(e.target.value)); };
+const reapply = debounce(async () => {
+  if (!motionOn) return;
+  try { await applyMotion(); log("Параметры применены."); } catch (e) { log("Движение: " + e.message); }
+}, 500);
+$("velocity").oninput = e => { $("velVal").textContent = e.target.value + "%"; reapply(); };
+$("sharpness").oninput = e => { $("sharpVal").textContent = e.target.value + "%"; describeSharp(); reapply(); };
 
-// --- Slide zone ---
+// --- Stroke zone (one slider, two handles) ---
+function updateZoneUI(){
+  const a = Number($("slideMin").value), b = Number($("slideMax").value);
+  $("zoneFill").style.left = "calc(" + a + "% + " + (11 - a * 0.22) + "px)";
+  $("zoneFill").style.width = "calc(" + (b - a) + "% - " + ((b - a) * 0.22) + "px)";
+  $("zoneVal").textContent = a + "–" + b + "%";
+}
 const sendSlide = debounce(async () => {
-  let min = Number($("slideMin").value), max = Number($("slideMax").value);
-  if (min >= max) { log("Нижняя граница должна быть меньше верхней."); return; }
+  const min = Number($("slideMin").value), max = Number($("slideMax").value);
   try { await api("PUT", "/slide", { min: pct(min), max: pct(max) }); log("Зона " + min + "–" + max + "%"); }
   catch (e) { log("Зона: " + e.message); }
 }, 200);
-$("slideMin").oninput = e => { $("minVal").textContent = e.target.value + "%"; sendSlide(); };
-$("slideMax").oninput = e => { $("maxVal").textContent = e.target.value + "%"; sendSlide(); };
+$("slideMin").oninput = e => { const b = Number($("slideMax").value); if (Number(e.target.value) > b - 2) e.target.value = b - 2; updateZoneUI(); sendSlide(); };
+$("slideMax").oninput = e => { const a = Number($("slideMin").value); if (Number(e.target.value) < a + 2) e.target.value = a + 2; updateZoneUI(); sendSlide(); };
+updateZoneUI();
 
 // --- Slide (HDSP, real time) ---
 async function pumpPos(){
   if (!connected || posBusy || posTarget === posSent) return;
   posBusy = true;
+  if (motionOn) { motionOn = false; applySeq++; }
   const position = posTarget, duration = Number($("duration").value);
   try {
     await ensureMode(MODE.HDSP);
