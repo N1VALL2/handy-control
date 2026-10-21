@@ -100,6 +100,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 #log{font-family:ui-monospace,Consolas,monospace;font-size:.8rem;max-height:160px;overflow:auto;margin:0;padding:12px;
   border-radius:14px;background:rgba(0,0,0,.4);white-space:pre-wrap;color:var(--muted)}
 .locked{opacity:.4;pointer-events:none}
+.row + .row{margin-top:10px}
+.real{position:absolute;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;border:2px solid var(--a2);box-shadow:0 0 12px var(--a2);transform:translateY(50%);display:none;z-index:2}
 @media (max-width:520px){.rail{height:260px;width:64px}.viz-body{gap:20px}}
 </style>
 </head>
@@ -115,7 +117,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
     <section class="glass viz">
       <div class="head"><h2>Сейчас</h2><span class="tag" id="modeTag">Ожидание</span></div>
       <div class="viz-body">
-        <div class="rail" id="rail"><div class="zone" id="zone"></div><div class="target" id="target"></div><div class="sleeve" id="sleeve"></div></div>
+        <div class="rail" id="rail"><div class="zone" id="zone"></div><div class="target" id="target"></div><div class="sleeve" id="sleeve"></div><div class="real" id="real"></div></div>
         <div>
           <div class="big" id="bigPos">50%</div>
           <div class="sub">положение в ходе</div>
@@ -123,18 +125,21 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
         </div>
       </div>
       <canvas id="chart"></canvas>
-      <label class="check"><input type="checkbox" id="pollReal"> Читать реальную позицию с устройства раз в секунду</label>
+      <div class="sub">Белая линия — команда, бирюзовая — реальная позиция с датчика.</div>
+      <label class="check"><input type="checkbox" id="pollReal" checked> Читать позицию с датчика</label>
     </section>
 
     <div class="stack">
       <section class="glass">
         <h2>Подключение</h2>
         <div class="row">
+          <input type="password" id="appId" placeholder="Application ID с портала разработчика" autocomplete="off">
+        </div>
+        <div class="row">
           <input type="text" id="key" placeholder="Connection key из приложения Handy" autocomplete="off">
           <button class="primary" id="connectBtn">Подключить</button>
         </div>
-        <div class="info" id="deviceInfo">Ключ сохраняется только в этом браузере.</div>
-        <label class="check"><input type="checkbox" id="fracMode"> Шкала 0–1 (прошивка 4 / Handy 2)</label>
+        <div class="info" id="deviceInfo">Оба ключа сохраняются только в этом браузере. API v3, прошивка 4.</div>
       </section>
 
       <button id="stop" disabled>Стоп<small>или клавиша Пробел</small></button>
@@ -150,8 +155,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
             <div class="info">Тяни по полосе, и Handy едет следом. Стрелки вверх и вниз тоже работают.</div>
           </div>
         </div>
-        <label class="slider"><span>Плавность <b id="durVal">150 мс</b></span>
-          <input type="range" id="duration" min="50" max="1000" step="10" value="150">
+        <label class="slider"><span>Плавность <b id="durVal">400 мс</b></span>
+          <input type="range" id="duration" min="300" max="1000" step="10" value="400">
         </label>
       </section>
 
@@ -173,7 +178,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
         <label class="slider"><span>Резкость <b id="sharpVal">0%</b></span>
           <input type="range" id="sharpness" min="0" max="100" value="0">
         </label>
-        <div class="info" id="motionInfo">Плавная волна. Изменения применяются примерно через секунду.</div>
+        <div class="info" id="motionInfo">Плавная волна.</div>
       </section>
 
       <section class="glass">
@@ -185,13 +190,11 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 </main>
 
 <script>
-const API = "https://www.handyfeeling.com/api/handy/v2";
-const MODE = { HAMP: 0, HSSP: 1, HDSP: 2 };
+const API = "https://www.handyfeeling.com/api/handy-rest/v3";
+const MODE = { HAMP: 0, HDSP: 2, HSP: 4 };
 const $ = id => document.getElementById(id);
 
-let key = "", currentMode = null, connected = false, frac = false;
-let posTarget = 50, posSent = null, posBusy = false;
-const pct = v => frac ? v / 100 : v;
+let appId = "", key = "", currentMode = null, connected = false, offset = 0;
 
 function log(msg){
   const t = new Date().toLocaleTimeString();
@@ -202,22 +205,32 @@ function setTag(t){ $("modeTag").textContent = t; }
 async function api(method, path, body){
   const res = await fetch(API + path, {
     method,
-    headers: { "X-Connection-Key": key, "Content-Type": "application/json", "Accept": "application/json" },
+    headers: { "X-Api-Key": appId, "X-Connection-Key": key, "Content-Type": "application/json", "Accept": "application/json" },
     body: body ? JSON.stringify(body) : undefined
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 429) throw new Error("слишком много запросов, подожди секунду");
   if (!res.ok || data.error) {
-    const msg = data.error ? (data.error.name || "Ошибка") + ": " + (data.error.message || "") : "HTTP " + res.status;
-    throw new Error(msg);
+    const er = data.error || {};
+    throw new Error((er.name ? er.name + ": " : "") + (er.message || "HTTP " + res.status));
   }
-  return data;
+  return data.result !== undefined ? data.result : data;
 }
 
 async function ensureMode(mode){
   if (currentMode === mode) return;
-  await api("PUT", "/mode", { mode });
+  await api("PUT", "/mode2", { mode });
   currentMode = mode;
-  posSent = null;
+}
+
+async function syncTime(){
+  let best = Infinity;
+  for (let i = 0; i < 3; i++) {
+    const t0 = Date.now();
+    const r = await fetch(API + "/servertime").then(x => x.json());
+    const t1 = Date.now();
+    if (t1 - t0 < best) { best = t1 - t0; offset = r.server_time + (t1 - t0) / 2 - t1; }
+  }
 }
 
 function setConnected(on){
@@ -228,17 +241,40 @@ function setConnected(on){
   ["motionPanel","posPanel"].forEach(id => $(id).classList.toggle("locked", !on));
 }
 
-// --- Live visualization (model of commanded motion) ---
-const sim = { pos: 50, from: 50, to: 50, t0: 0, dur: 0, hamp: false, dir: 1, target: null };
+// --- Motion shape ---
+const BASE = 1000;
+const oneWay = () => 3000 - Number($("velocity").value) * 28.5;
+const sharp = () => Number($("sharpness").value) / 100;
+function halfShape(u, s){
+  const m = 1 - 0.8 * s;
+  if (u >= m) return 1;
+  const x = u / m, smooth = (1 - Math.cos(Math.PI * x)) / 2;
+  return smooth + (x - smooth) * s;
+}
+function shapeAt(phase){
+  const s = sharp();
+  return phase < .5 ? 100 * halfShape(phase * 2, s) : 100 * (1 - halfShape(phase * 2 - 1, s));
+}
+
+// --- Live visualization ---
+const sim = { pos: 50, from: 50, to: 50, t0: 0, dur: 0, hamp: false, phase: 0, target: null };
 const zone = () => { const a = Number($("slideMin").value), b = Number($("slideMax").value); return a < b ? [a, b] : [0, 100]; };
 const mapZ = p => { const z = zone(); return z[0] + p / 100 * (z[1] - z[0]); };
 function simMove(p, dur){ sim.hamp = false; sim.from = sim.pos; sim.to = mapZ(p); sim.target = sim.to; sim.t0 = performance.now(); sim.dur = Math.max(dur, 1); }
-function simHamp(on){ sim.hamp = on; sim.dur = 0; sim.target = null; }
+function simHamp(on){ sim.hamp = on; sim.dur = 0; sim.target = null; sim.phase = 0; }
 function simFreeze(){ sim.hamp = false; sim.dur = 0; }
 
-const hist = [];
+const hist = [], realHist = [];
+let realPos = null;
 const cv = $("chart"), cx = cv.getContext("2d");
 let last = performance.now();
+
+function drawLine(pts, now, w, y, style, width){
+  if (pts.length < 2) return;
+  cx.strokeStyle = style; cx.lineWidth = width; cx.lineJoin = "round"; cx.beginPath();
+  pts.forEach((pt, i) => { const x = w - (now - pt[0]) / 10000 * w; if (i) cx.lineTo(x, y(pt[1])); else cx.moveTo(x, y(pt[1])); });
+  cx.stroke();
+}
 
 function render(now){
   const rail = $("rail"), H = rail.clientHeight, S = 58, span = H - S;
@@ -249,6 +285,9 @@ function render(now){
   const tg = $("target");
   if (sim.target === null) tg.style.display = "none";
   else { tg.style.display = "block"; tg.style.bottom = (S / 2 + sim.target / 100 * span) + "px"; }
+  const rl = $("real");
+  if (realPos === null) rl.style.display = "none";
+  else { rl.style.display = "block"; rl.style.bottom = (S / 2 + realPos / 100 * span) + "px"; }
   $("bigPos").textContent = Math.round(sim.pos) + "%";
 
   const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
@@ -260,12 +299,10 @@ function render(now){
   cx.fillRect(0, y(z[1]), w, y(z[0]) - y(z[1]));
   cx.strokeStyle = "rgba(255,255,255,.07)"; cx.lineWidth = 1;
   [0, 50, 100].forEach(p => { cx.beginPath(); cx.moveTo(0, y(p)); cx.lineTo(w, y(p)); cx.stroke(); });
-  if (hist.length < 2) return;
+  drawLine(realHist, now, w, y, "rgba(111,227,255,.85)", 2);
   const g = cx.createLinearGradient(0, 0, w, 0);
-  g.addColorStop(0, "rgba(111,227,255,0)"); g.addColorStop(.6, "rgba(157,140,255,.9)"); g.addColorStop(1, "#ffffff");
-  cx.strokeStyle = g; cx.lineWidth = 2.5; cx.lineJoin = "round"; cx.beginPath();
-  hist.forEach((pt, i) => { const x = w - (now - pt[0]) / 10000 * w; if (i) cx.lineTo(x, y(pt[1])); else cx.moveTo(x, y(pt[1])); });
-  cx.stroke();
+  g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(.6, "rgba(157,140,255,.9)"); g.addColorStop(1, "#ffffff");
+  drawLine(hist, now, w, y, g, 2.5);
   cx.fillStyle = "#fff"; cx.shadowColor = "#9d8cff"; cx.shadowBlur = 14;
   cx.beginPath(); cx.arc(w - 4, y(sim.pos), 4, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
 }
@@ -273,8 +310,8 @@ function render(now){
 function frame(now){
   const dt = Math.min(now - last, 50); last = now;
   if (sim.hamp) {
-    const P = 2 * oneWay();
-    sim.pos = mapZ(shapeAt((now - motionStart) % P));
+    sim.phase = (sim.phase + dt / (2 * oneWay())) % 1;
+    sim.pos = mapZ(shapeAt(sim.phase));
   } else if (sim.dur > 0) {
     const k = Math.min(1, (now - sim.t0) / sim.dur);
     const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
@@ -283,43 +320,44 @@ function frame(now){
   }
   hist.push([now, sim.pos]);
   while (hist.length && now - hist[0][0] > 10000) hist.shift();
+  while (realHist.length && now - realHist[0][0] > 10000) realHist.shift();
   render(now);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-let pollTimer = null;
+// --- Real position from the sensor ---
 async function pollReal(){
-  if (!connected) return;
-  try { const r = await api("GET", "/slide/position/absolute"); $("realPos").textContent = "Датчик: " + Number(r.position).toFixed(1) + " мм"; }
-  catch (e) { $("realPos").textContent = "Датчик: " + e.message; }
+  if (!connected || !$("pollReal").checked || slideTimer) return;
+  try {
+    const r = await api("GET", "/slider/state");
+    realPos = Math.max(0, Math.min(100, Math.round(Number(r.position) * 100)));
+    realHist.push([performance.now(), realPos]);
+    $("realPos").textContent = "Датчик: " + realPos + "%";
+  } catch (e) { $("realPos").textContent = "Датчик: " + e.message; }
 }
-$("pollReal").onchange = e => { clearInterval(pollTimer); $("realPos").textContent = ""; if (e.target.checked) pollTimer = setInterval(pollReal, 1000); };
+setInterval(pollReal, 1000);
+$("pollReal").onchange = e => { if (!e.target.checked) { realPos = null; realHist.length = 0; $("realPos").textContent = ""; } };
 
 // --- Connect ---
-try { $("key").value = localStorage.getItem("handyKey") || ""; } catch(e) {}
-$("fracMode").onchange = e => { frac = e.target.checked; posSent = null; log(frac ? "Шкала 0–1 включена." : "Шкала 0–100 включена."); };
+try { $("appId").value = localStorage.getItem("handyAppId") || ""; $("key").value = localStorage.getItem("handyKey") || ""; } catch(e) {}
 
 $("connectBtn").onclick = async () => {
-  key = $("key").value.trim();
-  if (!key) { log("Введите connection key."); return; }
-  try { localStorage.setItem("handyKey", key); } catch(e) {}
+  appId = $("appId").value.trim(); key = $("key").value.trim();
+  if (!appId || !key) { log("Нужны оба ключа: Application ID и connection key."); return; }
+  try { localStorage.setItem("handyAppId", appId); localStorage.setItem("handyKey", key); } catch(e) {}
   try {
     const c = await api("GET", "/connected");
-    if (!c.connected) { setConnected(false); log("Устройство офлайн. Проверьте Wi-Fi на Handy."); return; }
-    const info = await api("GET", "/info");
-    $("deviceInfo").textContent = "Прошивка " + info.fwVersion + ", модель " + (info.model ?? "—") + ", железо " + (info.hwVersion ?? "—");
-    if (info.fwStatus && info.fwStatus !== 0) log("Похоже, нужна обновлённая прошивка для API v2.");
-    frac = String(info.fwVersion || "").startsWith("4");
-    $("fracMode").checked = frac;
-    if (frac) log("Прошивка 4: включена шкала 0–1.");
-    const slide = await api("GET", "/slide").catch(() => null);
-    if (slide) {
-      const k = slide.max <= 1 ? 100 : 1;
-      const mn = Math.round(slide.min * k), mx = Math.round(slide.max * k);
-      $("slideMin").value = mn; $("slideMax").value = mx;
+    if (!c.connected) { setConnected(false); log("Устройство офлайн. Проверь Wi-Fi на Handy."); return; }
+    const info = await api("GET", "/info").catch(() => ({}));
+    const fw = info.fw_version || info.fwVersion;
+    if (fw) $("deviceInfo").textContent = "Прошивка " + fw + (info.model ? ", модель " + info.model : "") + ". API v3.";
+    const st = await api("GET", "/slider/stroke").catch(() => null);
+    if (st && typeof st.min === "number") {
+      $("slideMin").value = Math.round(st.min * 100); $("slideMax").value = Math.round(st.max * 100);
       updateZoneUI();
     }
+    await syncTime();
     currentMode = null;
     setConnected(true);
     log("Подключено.");
@@ -331,8 +369,9 @@ async function stopAll(){
   if (!connected) return;
   simFreeze(); setTag("Стоп");
   motionOn = false; applySeq++;
+  clearInterval(slideTimer); slideTimer = null;
   try {
-    if (currentMode === MODE.HSSP) await api("PUT", "/hssp/stop");
+    if (currentMode === MODE.HSP) await api("PUT", "/hsp/stop");
     else { await ensureMode(MODE.HAMP); await api("PUT", "/hamp/stop"); }
     log("Остановлено.");
   } catch (e) { log("Стоп: " + e.message); }
@@ -342,76 +381,61 @@ document.addEventListener("keydown", e => {
   if (e.code === "Space" && e.target.tagName !== "INPUT") { e.preventDefault(); stopAll(); }
 });
 
-// --- Motion (HSSP script generated in the browser) ---
-let motionOn = false, motionStart = 0, applySeq = 0;
-const oneWay = () => 3000 - Number($("velocity").value) * 28.5;
-const sharp = () => Number($("sharpness").value) / 100;
-function halfShape(u, s){
-  const m = 1 - 0.8 * s;
-  if (u >= m) return 1;
-  const x = u / m, smooth = (1 - Math.cos(Math.PI * x)) / 2;
-  return smooth + (x - smooth) * s;
-}
-function shapeAt(t){
-  const h = oneWay(), s = sharp();
-  return t < h ? 100 * halfShape(t / h, s) : 100 * (1 - halfShape((t - h) / h, s));
-}
-function buildScript(){
-  const h = Math.round(oneWay()), s = sharp(), m = 1 - 0.8 * s;
-  const n = Math.max(1, Math.min(12, Math.floor(m * h / 40)));
-  const cycles = Math.max(2, Math.ceil(20000 / (2 * h)));
-  const actions = [{ at: 0, pos: 0 }];
-  for (let k = 0; k < cycles * 2; k++) {
-    const start = k * h, up = k % 2 === 0;
+function debounce(fn, ms){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// --- Motion (HSP: one stroke cycle looped on the device) ---
+let motionOn = false, applySeq = 0;
+const rate = () => BASE / oneWay();
+function buildPoints(){
+  const s = sharp(), m = 1 - 0.8 * s, n = 12;
+  const pts = [{ t: 0, x: 0 }];
+  for (let k = 0; k < 2; k++) {
+    const start = k * BASE, up = k === 0;
     for (let i = 1; i <= n; i++) {
       const v = halfShape(i / n * m, s);
-      actions.push({ at: start + Math.round(i / n * m * h), pos: Math.round(up ? 100 * v : 100 - 100 * v) });
+      pts.push({ t: start + Math.round(i / n * m * BASE), x: Math.round(up ? 100 * v : 100 - 100 * v) });
     }
-    if (m < 0.999) actions.push({ at: start + h, pos: up ? 100 : 0 });
+    if (m < 0.999) pts.push({ t: start + BASE, x: up ? 100 : 0 });
   }
-  return { version: "1.0", inverted: false, range: 100, actions };
+  return pts;
 }
-async function applyMotion(){
+async function startMotion(){
   const seq = ++applySeq;
-  const fd = new FormData();
-  fd.append("file", new File([JSON.stringify(buildScript())], "motion.funscript", { type: "application/json" }));
-  const up = await fetch("https://www.handyfeeling.com/api/hosting/v2/upload", { method: "POST", body: fd }).then(r => r.json());
-  if (!up.url) throw new Error("не удалось загрузить скрипт");
+  clearInterval(slideTimer); slideTimer = null;
+  await ensureMode(MODE.HSP);
+  await api("PUT", "/hsp/setup", {});
   if (seq !== applySeq) return;
-  await ensureMode(MODE.HSSP);
-  await api("PUT", "/hssp/setup", { url: up.url });
-  await api("PUT", "/hssp/loop", { activated: true }).catch(() => {});
-  const t0 = Date.now(), st = await api("GET", "/servertime"), t1 = Date.now();
-  const offset = st.serverTime + (t1 - t0) / 2 - t1;
-  if (seq !== applySeq) return;
-  await api("PUT", "/hssp/play", { estimatedServerTime: Math.round(Date.now() + offset), startTime: 0 });
-  motionStart = performance.now();
+  await api("PUT", "/hsp/play", {
+    start_time: 0, server_time: Math.round(Date.now() + offset), playback_rate: rate(), loop: true,
+    add: { points: buildPoints(), flush: true }
+  });
   simHamp(true); setTag("Движение");
 }
 function describeSharp(){
   const s = Number($("sharpness").value);
-  const kind = s < 15 ? "Плавная волна." : s < 60 ? "Упругие толчки." : "Резкие рывки с паузами на краях.";
-  $("motionInfo").textContent = kind + " Изменения применяются примерно через секунду.";
+  $("motionInfo").textContent = s < 15 ? "Плавная волна." : s < 60 ? "Упругие толчки." : "Резкие рывки с паузами на краях.";
 }
 $("hampStart").onclick = async () => {
-  motionOn = true; setTag("Загрузка…");
-  try { await applyMotion(); log("Движение запущено."); }
+  motionOn = true;
+  try { await startMotion(); log("Движение запущено."); }
   catch (e) { motionOn = false; setTag("Ожидание"); log("Запуск: " + e.message); }
 };
 $("hampStop").onclick = async () => {
   motionOn = false; applySeq++; simHamp(false); setTag("Ожидание");
-  try { if (currentMode === MODE.HSSP) await api("PUT", "/hssp/stop"); log("Движение остановлено."); }
+  try { if (currentMode === MODE.HSP) await api("PUT", "/hsp/stop"); log("Движение остановлено."); }
   catch (e) { log("Остановка: " + e.message); }
 };
-
-function debounce(fn, ms){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
-
-const reapply = debounce(async () => {
+const applySpeed = debounce(async () => {
   if (!motionOn) return;
-  try { await applyMotion(); log("Параметры применены."); } catch (e) { log("Движение: " + e.message); }
-}, 500);
-$("velocity").oninput = e => { $("velVal").textContent = e.target.value + "%"; reapply(); };
-$("sharpness").oninput = e => { $("sharpVal").textContent = e.target.value + "%"; describeSharp(); reapply(); };
+  try { await api("PUT", "/hsp/playbackrate", { playback_rate: rate() }); }
+  catch (e) { try { await startMotion(); } catch (e2) { log("Скорость: " + e2.message); } }
+}, 150);
+const applySharp = debounce(async () => {
+  if (!motionOn) return;
+  try { await startMotion(); } catch (e) { log("Резкость: " + e.message); }
+}, 300);
+$("velocity").oninput = e => { $("velVal").textContent = e.target.value + "%"; applySpeed(); };
+$("sharpness").oninput = e => { $("sharpVal").textContent = e.target.value + "%"; describeSharp(); applySharp(); };
 
 // --- Stroke zone (one slider, two handles) ---
 function updateZoneUI(){
@@ -420,29 +444,37 @@ function updateZoneUI(){
   $("zoneFill").style.width = "calc(" + (b - a) + "% - " + ((b - a) * 0.22) + "px)";
   $("zoneVal").textContent = a + "–" + b + "%";
 }
-const sendSlide = debounce(async () => {
+const sendZone = debounce(async () => {
   const min = Number($("slideMin").value), max = Number($("slideMax").value);
-  try { await api("PUT", "/slide", { min: pct(min), max: pct(max) }); log("Зона " + min + "–" + max + "%"); }
+  try { await api("PUT", "/slider/stroke", { min: min / 100, max: max / 100 }); log("Зона " + min + "–" + max + "%"); }
   catch (e) { log("Зона: " + e.message); }
-}, 200);
-$("slideMin").oninput = e => { const b = Number($("slideMax").value); if (Number(e.target.value) > b - 2) e.target.value = b - 2; updateZoneUI(); sendSlide(); };
-$("slideMax").oninput = e => { const a = Number($("slideMin").value); if (Number(e.target.value) < a + 2) e.target.value = a + 2; updateZoneUI(); sendSlide(); };
+}, 250);
+$("slideMin").oninput = e => { const b = Number($("slideMax").value); if (Number(e.target.value) > b - 2) e.target.value = b - 2; updateZoneUI(); sendZone(); };
+$("slideMax").oninput = e => { const a = Number($("slideMin").value); if (Number(e.target.value) < a + 2) e.target.value = a + 2; updateZoneUI(); sendZone(); };
 updateZoneUI();
 
-// --- Slide (HDSP, real time) ---
-async function pumpPos(){
-  if (!connected || posBusy || posTarget === posSent) return;
-  posBusy = true;
-  if (motionOn) { motionOn = false; applySeq++; }
-  const position = posTarget, duration = Number($("duration").value);
+// --- Slide (HDSP, fixed tick, overlapping moves for smoothness) ---
+const TICK = 300;
+let posTarget = 50, lastSent = null, slideTimer = null, slideBusy = false, idleTicks = 0;
+async function slideTick(){
+  if (!connected || slideBusy) return;
+  if (posTarget === lastSent) {
+    if (++idleTicks > 4) { clearInterval(slideTimer); slideTimer = null; }
+    return;
+  }
+  idleTicks = 0; slideBusy = true;
+  const xp = posTarget, t = Number($("duration").value);
+  lastSent = xp;
   try {
     await ensureMode(MODE.HDSP);
-    simMove(position, duration); setTag("Слайд");
-    await api("PUT", "/hdsp/xpt", { position: pct(position), duration, stopOnTarget: !frac });
+    simMove(xp, t); setTag("Слайд");
+    await api("PUT", "/hdsp/xpt", { xp, t, stop_on_target: false });
   } catch (e) { log("Слайд: " + e.message); }
-  posSent = position;
-  posBusy = false;
-  pumpPos();
+  slideBusy = false;
+}
+function kickSlide(){
+  if (motionOn) { motionOn = false; applySeq++; }
+  if (!slideTimer) { lastSent = null; idleTicks = 0; slideTick(); slideTimer = setInterval(slideTick, TICK); }
 }
 
 const pad = $("pad");
@@ -452,7 +484,7 @@ function setPos(p){
   $("padFill").style.height = posTarget + "%";
   $("padLine").style.bottom = posTarget + "%";
   pad.setAttribute("aria-valuenow", posTarget);
-  pumpPos();
+  if (connected) kickSlide();
 }
 let dragging = false;
 const fromY = e => { const r = pad.getBoundingClientRect(); return (r.bottom - e.clientY) / r.height * 100; };
